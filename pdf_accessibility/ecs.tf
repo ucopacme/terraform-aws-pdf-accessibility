@@ -176,8 +176,8 @@ resource "aws_ecs_task_definition" "adobe_autotag" {
   family                   = "pdf-accessibility-${var.environment}-adobe-autotag"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 256
-  memory                   = 1024
+  cpu                      = var.autotag_cpu
+  memory                   = var.autotag_memory
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
 
@@ -185,7 +185,7 @@ resource "aws_ecs_task_definition" "adobe_autotag" {
     name      = "adobe-autotag-container"
     image     = "${aws_ecr_repository.adobe_autotag.repository_url}:latest"
     essential = true
-    memory    = 1024
+    memory    = var.autotag_memory
 
     logConfiguration = {
       logDriver = "awslogs"
@@ -208,8 +208,8 @@ resource "aws_ecs_task_definition" "alt_text_generator" {
   family                   = "pdf-accessibility-${var.environment}-alt-text-generator"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 256
-  memory                   = 1024
+  cpu                      = var.alt_text_cpu
+  memory                   = var.alt_text_memory
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
 
@@ -217,7 +217,7 @@ resource "aws_ecs_task_definition" "alt_text_generator" {
     name      = "alt-text-llm-container"
     image     = "${aws_ecr_repository.alt_text_generator.repository_url}:latest"
     essential = true
-    memory    = 1024
+    memory    = var.alt_text_memory
 
     logConfiguration = {
       logDriver = "awslogs"
