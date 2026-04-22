@@ -150,17 +150,119 @@ resource "aws_s3_bucket_notification" "pdf_upload" {
   ]
 }
 
-# ─── PDF Merger Lambda (Java JAR) ─────────────────────────────────────────
+# ─── PDF Merger Lambda (Java, built by CodeBuild) ─────────────────────────
+
+resource "aws_s3_bucket" "lambda_artifacts" {
+  bucket_prefix = "pdf-accessibility-${var.environment}-lambda-"
+  force_destroy = true
+
+  tags = {
+    Name = "pdf-accessibility-${var.environment}-lambda-artifacts"
+  }
+}
+
+resource "aws_codebuild_project" "pdf_merger_builder" {
+  name         = "pdf-accessibility-${var.environment}-pdf-merger-builder"
+  description  = "Builds the PDF Merger Java Lambda JAR and uploads to S3"
+  service_role = aws_iam_role.codebuild.arn
+
+  artifacts {
+    type = "NO_ARTIFACTS"
+  }
+
+  environment {
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = "aws/codebuild/amazonlinux-x86_64-standard:5.0"
+    type                        = "LINUX_CONTAINER"
+    image_pull_credentials_type = "CODEBUILD"
+
+    environment_variable {
+      name  = "ARTIFACT_BUCKET"
+      value = aws_s3_bucket.lambda_artifacts.id
+    }
+  }
+
+  source {
+    type            = "GITHUB"
+    location        = var.github_repo_url
+    git_clone_depth = 1
+    buildspec = yamlencode({
+      version = "0.2"
+      phases = {
+        install = {
+          "runtime-versions" = { java = "corretto21" }
+        }
+        build = {
+          commands = [
+            "echo Building PDF Merger Lambda JAR...",
+            "cd lambda/pdf-merger-lambda/PDFMergerLambda",
+            "mvn clean package -q",
+            "echo Uploading JAR to S3...",
+            "aws s3 cp target/PDFMergerLambda-1.0-SNAPSHOT.jar s3://$ARTIFACT_BUCKET/pdf-merger.jar",
+          ]
+        }
+      }
+    })
+  }
+
+  source_version = var.github_branch
+
+  tags = { Name = "pdf-accessibility-${var.environment}-pdf-merger-builder" }
+}
+
+# Add S3 permissions to CodeBuild role for artifact upload
+resource "aws_iam_role_policy" "codebuild_s3_artifacts" {
+  name = "s3-artifact-upload"
+  role = aws_iam_role.codebuild.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:PutObject", "s3:GetObject"]
+      Resource = ["${aws_s3_bucket.lambda_artifacts.arn}/*"]
+    }]
+  })
+}
+
+resource "null_resource" "trigger_merger_build" {
+  triggers = {
+    codebuild_project = aws_codebuild_project.pdf_merger_builder.id
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-SCRIPT
+      set -e
+      PROJECT="${aws_codebuild_project.pdf_merger_builder.name}"
+      REGION="${var.aws_region}"
+      echo "Starting PDF Merger build: $PROJECT"
+      BUILD_ID=$(aws codebuild start-build --project-name "$PROJECT" --region "$REGION" --query 'build.id' --output text)
+      echo "Build started: $BUILD_ID"
+      while true; do
+        STATUS=$(aws codebuild batch-get-builds --ids "$BUILD_ID" --region "$REGION" --query 'builds[0].buildStatus' --output text)
+        case "$STATUS" in
+          SUCCEEDED) echo "Build SUCCEEDED"; break ;;
+          FAILED|FAULT|STOPPED|TIMED_OUT) echo "Build failed: $STATUS"; exit 1 ;;
+          IN_PROGRESS) echo -n "."; sleep 10 ;;
+          *) sleep 5 ;;
+        esac
+      done
+    SCRIPT
+  }
+
+  depends_on = [aws_codebuild_project.pdf_merger_builder, aws_s3_bucket.lambda_artifacts]
+}
 
 resource "aws_lambda_function" "pdf_merger" {
-  function_name    = "pdf-accessibility-${var.environment}-pdf-merger"
-  role             = aws_iam_role.lambda_execution.arn
-  handler          = "com.example.App::handleRequest"
-  runtime          = "java21"
-  filename         = var.pdf_merger_jar_path
-  timeout          = 900
-  memory_size      = 1024
-  source_code_hash = filebase64sha256(var.pdf_merger_jar_path)
+  function_name = "pdf-accessibility-${var.environment}-pdf-merger"
+  role          = aws_iam_role.lambda_execution.arn
+  handler       = "com.example.App::handleRequest"
+  runtime       = "java21"
+  s3_bucket     = aws_s3_bucket.lambda_artifacts.id
+  s3_key        = "pdf-merger.jar"
+  timeout       = 900
+  memory_size   = 1024
 
   environment {
     variables = {
@@ -171,6 +273,8 @@ resource "aws_lambda_function" "pdf_merger" {
   tags = {
     Name = "pdf-accessibility-${var.environment}-pdf-merger-lambda"
   }
+
+  depends_on = [null_resource.trigger_merger_build]
 }
 
 # ─── Title Generator Lambda (Docker-based) ────────────────────────────────
