@@ -46,11 +46,6 @@ variable "deploy_pdf2html" {
   default     = false
 }
 
-variable "lambda_source_base_dir" {
-  description = "Base directory for Lambda function source code"
-  type        = string
-}
-
 variable "environment" {
   description = "Deployment environment"
   type        = string

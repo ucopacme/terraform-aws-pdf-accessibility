@@ -1,37 +1,129 @@
 # ═══════════════════════════════════════════════════════════════════════════
 # Lambda Functions for UI Backend
+# All Lambda code is pulled from GitHub via CodeBuild, zipped, and stored in S3
 # ═══════════════════════════════════════════════════════════════════════════
 
-# ─── Package Lambda source code ───────────────────────────────────────────
+# ─── S3 bucket for Lambda deployment packages ─────────────────────────────
 
-data "archive_file" "post_confirmation" {
-  type        = "zip"
-  source_dir  = "${var.lambda_source_base_dir}/postConfirmation"
-  output_path = "${path.module}/builds/postConfirmation.zip"
+resource "aws_s3_bucket" "lambda_artifacts" {
+  bucket_prefix = "pdf-accessibility-${var.environment}-ui-lambda-"
+  force_destroy = true
+
+  tags = {
+    Name = "pdf-accessibility-${var.environment}-ui-lambda-artifacts"
+  }
 }
 
-data "archive_file" "update_attributes" {
-  type        = "zip"
-  source_dir  = "${var.lambda_source_base_dir}/updateAttributes"
-  output_path = "${path.module}/builds/updateAttributes.zip"
+# ─── CodeBuild project to package UI Lambdas from GitHub ──────────────────
+
+resource "aws_iam_role" "codebuild_lambda" {
+  name = "pdf-accessibility-${var.environment}-ui-lambda-codebuild-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "codebuild.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "pdf-accessibility-${var.environment}-ui-lambda-codebuild-role" }
 }
 
-data "archive_file" "check_or_increment_quota" {
-  type        = "zip"
-  source_dir  = "${var.lambda_source_base_dir}/checkOrIncrementQuota"
-  output_path = "${path.module}/builds/checkOrIncrementQuota.zip"
+resource "aws_iam_role_policy" "codebuild_lambda" {
+  name = "codebuild-lambda-permissions"
+  role = aws_iam_role.codebuild_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = ["arn:aws:logs:${var.aws_region}:${var.account_id}:log-group:/aws/codebuild/*"]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject"]
+        Resource = ["${aws_s3_bucket.lambda_artifacts.arn}/*"]
+      }
+    ]
+  })
 }
 
-data "archive_file" "update_attributes_groups" {
-  type        = "zip"
-  source_dir  = "${var.lambda_source_base_dir}/UpdateAttributesGroups"
-  output_path = "${path.module}/builds/UpdateAttributesGroups.zip"
+resource "aws_codebuild_project" "ui_lambda_packager" {
+  name         = "pdf-accessibility-${var.environment}-ui-lambda-packager"
+  description  = "Packages UI Lambda functions from GitHub and uploads zips to S3"
+  service_role = aws_iam_role.codebuild_lambda.arn
+
+  artifacts {
+    type = "NO_ARTIFACTS"
+  }
+
+  environment {
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = "aws/codebuild/amazonlinux-x86_64-standard:5.0"
+    type                        = "LINUX_CONTAINER"
+    image_pull_credentials_type = "CODEBUILD"
+
+    environment_variable {
+      name  = "ARTIFACT_BUCKET"
+      value = aws_s3_bucket.lambda_artifacts.id
+    }
+  }
+
+  source {
+    type            = "GITHUB"
+    location        = var.ui_github_repo_url
+    git_clone_depth = 1
+    buildspec = yamlencode({
+      version = "0.2"
+      phases = {
+        build = {
+          commands = [
+            "echo Packaging UI Lambda functions...",
+            "cd cdk_backend/lambda",
+            "for dir in postConfirmation updateAttributes checkOrIncrementQuota UpdateAttributesGroups preSignUp; do echo \"Zipping $dir...\"; cd $dir; zip -r /tmp/$dir.zip .; aws s3 cp /tmp/$dir.zip s3://$ARTIFACT_BUCKET/$dir.zip; cd ..; done",
+            "echo All Lambda packages uploaded to S3",
+          ]
+        }
+      }
+    })
+  }
+
+  source_version = var.ui_github_branch
+
+  tags = { Name = "pdf-accessibility-${var.environment}-ui-lambda-packager" }
 }
 
-data "archive_file" "pre_sign_up" {
-  type        = "zip"
-  source_dir  = "${var.lambda_source_base_dir}/preSignUp"
-  output_path = "${path.module}/builds/preSignUp.zip"
+resource "null_resource" "trigger_ui_lambda_build" {
+  triggers = {
+    codebuild_project = aws_codebuild_project.ui_lambda_packager.id
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-SCRIPT
+      set -e
+      PROJECT="${aws_codebuild_project.ui_lambda_packager.name}"
+      REGION="${var.aws_region}"
+      echo "Starting UI Lambda packager: $PROJECT"
+      BUILD_ID=$(aws codebuild start-build --project-name "$PROJECT" --region "$REGION" --query 'build.id' --output text)
+      echo "Build started: $BUILD_ID"
+      while true; do
+        STATUS=$(aws codebuild batch-get-builds --ids "$BUILD_ID" --region "$REGION" --query 'builds[0].buildStatus' --output text)
+        case "$STATUS" in
+          SUCCEEDED) echo "Build SUCCEEDED"; break ;;
+          FAILED|FAULT|STOPPED|TIMED_OUT) echo "Build failed: $STATUS"; exit 1 ;;
+          IN_PROGRESS) echo -n "."; sleep 10 ;;
+          *) sleep 5 ;;
+        esac
+      done
+    SCRIPT
+  }
+
+  depends_on = [aws_codebuild_project.ui_lambda_packager, aws_s3_bucket.lambda_artifacts]
 }
 
 # ─── Post Confirmation Lambda ─────────────────────────────────────────────
@@ -74,13 +166,13 @@ resource "aws_iam_role_policy" "post_confirmation_cognito" {
 }
 
 resource "aws_lambda_function" "post_confirmation" {
-  function_name    = "pdf-accessibility-${var.environment}-post-confirmation"
-  role             = aws_iam_role.post_confirmation.arn
-  handler          = "index.handler"
-  runtime          = "python3.12"
-  timeout          = 30
-  filename         = data.archive_file.post_confirmation.output_path
-  source_code_hash = data.archive_file.post_confirmation.output_base64sha256
+  function_name = "pdf-accessibility-${var.environment}-post-confirmation"
+  role          = aws_iam_role.post_confirmation.arn
+  handler       = "index.handler"
+  runtime       = "python3.12"
+  timeout       = 30
+  s3_bucket     = aws_s3_bucket.lambda_artifacts.id
+  s3_key        = "postConfirmation.zip"
 
   environment {
     variables = {
@@ -91,6 +183,8 @@ resource "aws_lambda_function" "post_confirmation" {
   }
 
   tags = { Name = "pdf-accessibility-${var.environment}-post-confirmation" }
+
+  depends_on = [null_resource.trigger_ui_lambda_build]
 }
 
 resource "aws_lambda_permission" "cognito_post_confirmation" {
@@ -104,13 +198,13 @@ resource "aws_lambda_permission" "cognito_post_confirmation" {
 # ─── Update Attributes Lambda ─────────────────────────────────────────────
 
 resource "aws_lambda_function" "update_attributes" {
-  function_name    = "pdf-accessibility-${var.environment}-update-attributes"
-  role             = aws_iam_role.post_confirmation.arn # Reuses same role
-  handler          = "index.handler"
-  runtime          = "python3.12"
-  timeout          = 30
-  filename         = data.archive_file.update_attributes.output_path
-  source_code_hash = data.archive_file.update_attributes.output_base64sha256
+  function_name = "pdf-accessibility-${var.environment}-update-attributes"
+  role          = aws_iam_role.post_confirmation.arn
+  handler       = "index.handler"
+  runtime       = "python3.12"
+  timeout       = 30
+  s3_bucket     = aws_s3_bucket.lambda_artifacts.id
+  s3_key        = "updateAttributes.zip"
 
   environment {
     variables = {
@@ -119,6 +213,8 @@ resource "aws_lambda_function" "update_attributes" {
   }
 
   tags = { Name = "pdf-accessibility-${var.environment}-update-attributes" }
+
+  depends_on = [null_resource.trigger_ui_lambda_build]
 }
 
 # ─── Check/Increment Quota Lambda ─────────────────────────────────────────
@@ -161,13 +257,13 @@ resource "aws_iam_role_policy" "check_upload_quota_cognito" {
 }
 
 resource "aws_lambda_function" "check_or_increment_quota" {
-  function_name    = "pdf-accessibility-${var.environment}-check-or-increment-quota"
-  role             = aws_iam_role.check_upload_quota.arn
-  handler          = "index.handler"
-  runtime          = "python3.12"
-  timeout          = 30
-  filename         = data.archive_file.check_or_increment_quota.output_path
-  source_code_hash = data.archive_file.check_or_increment_quota.output_base64sha256
+  function_name = "pdf-accessibility-${var.environment}-check-or-increment-quota"
+  role          = aws_iam_role.check_upload_quota.arn
+  handler       = "index.handler"
+  runtime       = "python3.12"
+  timeout       = 30
+  s3_bucket     = aws_s3_bucket.lambda_artifacts.id
+  s3_key        = "checkOrIncrementQuota.zip"
 
   environment {
     variables = {
@@ -176,6 +272,8 @@ resource "aws_lambda_function" "check_or_increment_quota" {
   }
 
   tags = { Name = "pdf-accessibility-${var.environment}-check-or-increment-quota" }
+
+  depends_on = [null_resource.trigger_ui_lambda_build]
 }
 
 # ─── Update Attributes Groups Lambda (EventBridge triggered) ──────────────
@@ -221,13 +319,13 @@ resource "aws_iam_role_policy" "update_attributes_groups_permissions" {
 }
 
 resource "aws_lambda_function" "update_attributes_groups" {
-  function_name    = "pdf-accessibility-${var.environment}-update-attrs-groups"
-  role             = aws_iam_role.update_attributes_groups.arn
-  handler          = "index.handler"
-  runtime          = "python3.12"
-  timeout          = 900
-  filename         = data.archive_file.update_attributes_groups.output_path
-  source_code_hash = data.archive_file.update_attributes_groups.output_base64sha256
+  function_name = "pdf-accessibility-${var.environment}-update-attrs-groups"
+  role          = aws_iam_role.update_attributes_groups.arn
+  handler       = "index.handler"
+  runtime       = "python3.12"
+  timeout       = 900
+  s3_bucket     = aws_s3_bucket.lambda_artifacts.id
+  s3_key        = "UpdateAttributesGroups.zip"
 
   environment {
     variables = {
@@ -236,6 +334,8 @@ resource "aws_lambda_function" "update_attributes_groups" {
   }
 
   tags = { Name = "pdf-accessibility-${var.environment}-update-attrs-groups" }
+
+  depends_on = [null_resource.trigger_ui_lambda_build]
 }
 
 resource "aws_lambda_permission" "eventbridge_invoke_update_groups" {
@@ -286,15 +386,17 @@ resource "aws_iam_role_policy" "pre_sign_up_cognito" {
 }
 
 resource "aws_lambda_function" "pre_sign_up" {
-  function_name    = "pdf-accessibility-${var.environment}-pre-sign-up"
-  role             = aws_iam_role.pre_sign_up.arn
-  handler          = "index.handler"
-  runtime          = "python3.12"
-  timeout          = 30
-  filename         = data.archive_file.pre_sign_up.output_path
-  source_code_hash = data.archive_file.pre_sign_up.output_base64sha256
+  function_name = "pdf-accessibility-${var.environment}-pre-sign-up"
+  role          = aws_iam_role.pre_sign_up.arn
+  handler       = "index.handler"
+  runtime       = "python3.12"
+  timeout       = 30
+  s3_bucket     = aws_s3_bucket.lambda_artifacts.id
+  s3_key        = "preSignUp.zip"
 
   tags = { Name = "pdf-accessibility-${var.environment}-pre-sign-up" }
+
+  depends_on = [null_resource.trigger_ui_lambda_build]
 }
 
 resource "aws_lambda_permission" "cognito_pre_sign_up" {

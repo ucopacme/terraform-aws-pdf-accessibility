@@ -34,32 +34,3 @@ variable "adobe_client_secret" {
   type      = string
   sensitive = true
 }
-
-# Source code paths
-variable "pdf_splitter_source_dir" {
-  type = string
-}
-
-variable "pdf_merger_jar_path" {
-  type = string
-}
-
-variable "title_generator_source_dir" {
-  type = string
-}
-
-variable "pre_remediation_checker_source_dir" {
-  type = string
-}
-
-variable "post_remediation_checker_source_dir" {
-  type = string
-}
-
-variable "adobe_autotag_container_dir" {
-  type = string
-}
-
-variable "alt_text_generator_container_dir" {
-  type = string
-}

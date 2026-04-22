@@ -20,11 +20,6 @@ variable "bucket_name" {
   type        = string
 }
 
-variable "pdf2html_source_dir" {
-  description = "Path to the pdf2html source directory"
-  type        = string
-}
-
 variable "environment" {
   description = "Deployment environment"
   type        = string
