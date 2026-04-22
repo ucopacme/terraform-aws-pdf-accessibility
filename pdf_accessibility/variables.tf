@@ -34,3 +34,30 @@ variable "adobe_client_secret" {
   type      = string
   sensitive = true
 }
+
+
+# ─── ECS Task Resources ────────────────────────────────────────────────────
+
+variable "autotag_cpu" {
+  description = "CPU units for Adobe Autotag ECS task"
+  type        = number
+  default     = 256
+}
+
+variable "autotag_memory" {
+  description = "Memory (MB) for Adobe Autotag ECS task"
+  type        = number
+  default     = 1024
+}
+
+variable "alt_text_cpu" {
+  description = "CPU units for Alt Text Generator ECS task"
+  type        = number
+  default     = 512
+}
+
+variable "alt_text_memory" {
+  description = "Memory (MB) for Alt Text Generator ECS task"
+  type        = number
+  default     = 2048
+}
