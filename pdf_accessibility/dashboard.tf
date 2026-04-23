@@ -37,7 +37,7 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
         properties = {
           title  = "Split PDF Lambda Logs"
           region = var.aws_region
-          query  = "SOURCE '${local.splitter_log_group}' | fields @timestamp, @message | filter @message like /filename/ | sort @timestamp desc | limit 50"
+          query  = "SOURCE '${local.splitter_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
           view   = "table"
         }
       },
@@ -50,7 +50,7 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
         properties = {
           title  = "Step Function Execution Logs"
           region = var.aws_region
-          query  = "SOURCE '${local.step_fn_log_group}' | fields @timestamp, @message | filter @message like /filename/ | sort @timestamp desc | limit 50"
+          query  = "SOURCE '${local.step_fn_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
           view   = "table"
         }
       },
@@ -63,7 +63,7 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
         properties = {
           title  = "Adobe Autotag Processing Logs"
           region = var.aws_region
-          query  = "SOURCE '${local.autotag_log_group}' | fields @timestamp, @message | filter @message like /filename/ | sort @timestamp desc | limit 50"
+          query  = "SOURCE '${local.autotag_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
           view   = "table"
         }
       },
@@ -76,7 +76,7 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
         properties = {
           title  = "Alt Text Generation Logs"
           region = var.aws_region
-          query  = "SOURCE '${local.alt_text_log_group}' | fields @timestamp, @message | filter @message like /filename/ | sort @timestamp desc | limit 50"
+          query  = "SOURCE '${local.alt_text_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
           view   = "table"
         }
       },
@@ -89,7 +89,7 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
         properties = {
           title  = "PDF Merger Lambda Logs"
           region = var.aws_region
-          query  = "SOURCE '${local.merger_log_group}' | fields @timestamp, @message | filter @message like /filename/ | sort @timestamp desc | limit 50"
+          query  = "SOURCE '${local.merger_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
           view   = "table"
         }
       }
