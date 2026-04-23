@@ -51,3 +51,10 @@ variable "environment" {
   type        = string
   default     = "production"
 }
+
+# ─── Lambda Source Paths ────────────────────────────────────────────────────
+
+variable "ui_lambda_source_path" {
+  description = "Local path to the UI Lambda source directories (containing postConfirmation/, updateAttributes/, etc.)"
+  type        = string
+}
