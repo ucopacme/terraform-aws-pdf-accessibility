@@ -61,3 +61,10 @@ variable "alt_text_memory" {
   type        = number
   default     = 2048
 }
+
+# ─── Lambda Source Paths ────────────────────────────────────────────────────
+
+variable "pdf_merger_jar_path" {
+  description = "Local path to the pre-built PDF Merger Lambda JAR file (build with: mvn clean package)"
+  type        = string
+}
