@@ -73,8 +73,9 @@ resource "null_resource" "pdf_bucket_cors" {
   count = var.deploy_pdf2pdf ? 1 : 0
 
   triggers = {
-    bucket_name = var.pdf_to_pdf_bucket_name
-    app_url     = "https://main.${aws_amplify_app.pdf_ui.id}.amplifyapp.com"
+    bucket_name   = var.pdf_to_pdf_bucket_name
+    app_url       = "https://main.${aws_amplify_app.pdf_ui.id}.amplifyapp.com"
+    custom_domain = var.custom_domain
   }
 
   provisioner "local-exec" {
@@ -83,7 +84,7 @@ resource "null_resource" "pdf_bucket_cors" {
         "CORSRules": [{
           "AllowedHeaders": ["*"],
           "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
-          "AllowedOrigins": ["https://main.${aws_amplify_app.pdf_ui.id}.amplifyapp.com", "http://localhost:3000"],
+          "AllowedOrigins": ["https://main.${aws_amplify_app.pdf_ui.id}.amplifyapp.com", ${var.custom_domain != "" ? "\"https://${var.custom_domain}\", " : ""}"http://localhost:3000"],
           "ExposeHeaders": ["ETag"],
           "MaxAgeSeconds": 3600
         }]
@@ -96,8 +97,9 @@ resource "null_resource" "html_bucket_cors" {
   count = var.deploy_pdf2html ? 1 : 0
 
   triggers = {
-    bucket_name = var.pdf_to_html_bucket_name
-    app_url     = "https://main.${aws_amplify_app.pdf_ui.id}.amplifyapp.com"
+    bucket_name   = var.pdf_to_html_bucket_name
+    app_url       = "https://main.${aws_amplify_app.pdf_ui.id}.amplifyapp.com"
+    custom_domain = var.custom_domain
   }
 
   provisioner "local-exec" {
@@ -106,7 +108,7 @@ resource "null_resource" "html_bucket_cors" {
         "CORSRules": [{
           "AllowedHeaders": ["*"],
           "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
-          "AllowedOrigins": ["https://main.${aws_amplify_app.pdf_ui.id}.amplifyapp.com", "http://localhost:3000"],
+          "AllowedOrigins": ["https://main.${aws_amplify_app.pdf_ui.id}.amplifyapp.com", ${var.custom_domain != "" ? "\"https://${var.custom_domain}\", " : ""}"http://localhost:3000"],
           "ExposeHeaders": ["ETag"],
           "MaxAgeSeconds": 3600
         }]
