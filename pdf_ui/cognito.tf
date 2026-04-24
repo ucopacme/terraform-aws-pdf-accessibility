@@ -230,15 +230,17 @@ resource "aws_cognito_user_pool_client" "pdf_ui" {
 
   allowed_oauth_flows_user_pool_client = true
 
-  callback_urls = [
+  callback_urls = compact([
     "${local.app_url}/callback",
-    "http://localhost:3000/callback"
-  ]
+    "http://localhost:3000/callback",
+    var.custom_domain != "" ? "https://${var.custom_domain}/callback" : "",
+  ])
 
-  logout_urls = [
+  logout_urls = compact([
     "${local.app_url}/home",
-    "http://localhost:3000/home"
-  ]
+    "http://localhost:3000/home",
+    var.custom_domain != "" ? "https://${var.custom_domain}/home" : "",
+  ])
 
   supported_identity_providers = ["COGNITO"]
 

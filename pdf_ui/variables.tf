@@ -58,3 +58,9 @@ variable "ui_lambda_source_path" {
   description = "Local path to the UI Lambda source directories (containing postConfirmation/, updateAttributes/, etc.)"
   type        = string
 }
+
+variable "custom_domain" {
+  description = "Custom domain for the frontend (e.g. pdf.prod.dxe.aws.ucop.edu). If empty, uses the default Amplify URL."
+  type        = string
+  default     = ""
+}
