@@ -120,3 +120,9 @@ variable "saml_attribute_mapping" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_cognito_provider" {
+  description = "Include Cognito user pool directory as an identity provider"
+  type        = bool
+  default     = true
+}
