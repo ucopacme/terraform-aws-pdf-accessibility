@@ -35,7 +35,7 @@ resource "aws_cognito_user_pool" "pdf_ui" {
   }
 
   verification_message_template {
-    default_email_option = "CONFIRM_WITH_LINK"
+    default_email_option  = "CONFIRM_WITH_LINK"
     email_subject_by_link = "Verify your email for PDF Accessibility"
     email_message_by_link = "Please click the link below to verify your email address: {##Verify Email##}"
   }
@@ -201,6 +201,29 @@ resource "aws_cognito_user_pool_domain" "pdf_ui" {
   user_pool_id = aws_cognito_user_pool.pdf_ui.id
 }
 
+# ─── SAML Identity Provider ────────────────────────────────────────────────
+
+resource "aws_cognito_identity_provider" "saml" {
+  count         = var.saml_provider_name != "" ? 1 : 0
+  user_pool_id  = aws_cognito_user_pool.pdf_ui.id
+  provider_name = var.saml_provider_name
+  provider_type = "SAML"
+
+  provider_details = merge(
+    var.saml_metadata_url != "" ? { MetadataURL = var.saml_metadata_url } : { MetadataFile = file(var.saml_metadata_file) },
+    {
+      IDPSignout              = tostring(var.saml_sign_out_enabled)
+      IDPInit                 = tostring(var.saml_idp_initiated)
+      RequestSigningAlgorithm = "rsa-sha256"
+      EncryptedResponses      = tostring(var.saml_encrypt_assertions)
+    }
+  )
+
+  idp_identifiers = var.saml_identifiers
+
+  attribute_mapping = var.saml_attribute_mapping
+}
+
 # ─── User Pool Client ─────────────────────────────────────────────────────
 
 resource "aws_cognito_user_pool_client" "pdf_ui" {
@@ -242,9 +265,14 @@ resource "aws_cognito_user_pool_client" "pdf_ui" {
     var.custom_domain != "" ? "https://${var.custom_domain}/home" : "",
   ])
 
-  supported_identity_providers = ["COGNITO"]
+  supported_identity_providers = compact(concat(
+    ["COGNITO"],
+    var.saml_provider_name != "" ? [var.saml_provider_name] : []
+  ))
 
   prevent_user_existence_errors = "ENABLED"
+
+  depends_on = [aws_cognito_identity_provider.saml]
 }
 
 # ─── User Pool Groups ─────────────────────────────────────────────────────
