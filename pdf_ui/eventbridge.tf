@@ -61,12 +61,44 @@ resource "aws_s3_bucket_policy" "cloudtrail" {
   })
 }
 
+resource "aws_kms_key" "cloudtrail" {
+  description             = "KMS key for CloudTrail encryption"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "EnableRootAccountAccess"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::${var.account_id}:root" }
+        Action    = "kms:*"
+        Resource  = "*"
+      },
+      {
+        Sid       = "AllowCloudTrailEncrypt"
+        Effect    = "Allow"
+        Principal = { Service = "cloudtrail.amazonaws.com" }
+        Action    = ["kms:GenerateDataKey*", "kms:DescribeKey"]
+        Resource  = "*"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "pdf-accessibility-${var.environment}-cloudtrail-kms"
+  }
+}
+
 resource "aws_cloudtrail" "cognito" {
   name                          = "pdf-accessibility-${var.environment}-cognito-trail"
   s3_bucket_name                = aws_s3_bucket.cloudtrail.id
   is_multi_region_trail         = true
   include_global_service_events = true
   enable_logging                = true
+  kms_key_id                    = aws_kms_key.cloudtrail.arn
+  enable_log_file_validation    = true
 
   tags = {
     Name = "pdf-accessibility-${var.environment}-cognito-trail"
