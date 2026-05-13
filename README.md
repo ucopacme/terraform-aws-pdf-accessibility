@@ -266,6 +266,260 @@ terraform plan
 terraform apply
 ```
 
+---
+
+## Full Deployment Example
+
+Below is a complete example deploying all three modules together with private GitHub repos, SAML SSO, S3 lifecycle, and a custom domain. See [ucop-terraform-deployments](https://github.com/ucopacme/ucop-terraform-deployments/tree/main/terraform/dxe-prod/pdf-accessibility) for the live production deployment.
+
+### backend.tf
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket = "your-terraform-state-bucket"
+    key    = "pdf-accessibility/terraform.tfstate"
+    region = "us-west-2"
+  }
+}
+```
+
+### versions.tf
+
+```hcl
+terraform {
+  required_version = ">= 1.5.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-west-2"
+}
+```
+
+### locals.tf
+
+```hcl
+locals {
+  account_id = data.aws_caller_identity.current.account_id
+  region     = data.aws_region.current.name
+
+  aws_region   = "us-west-2"
+  project_name = "pdf-accessibility"
+  environment  = "prod"
+
+  # Feature flags
+  deploy_pdf2pdf  = true
+  deploy_pdf2html = true
+  deploy_ui       = true
+
+  # ECS task sizing
+  autotag_cpu     = 256
+  autotag_memory  = 1024
+  alt_text_cpu    = 512
+  alt_text_memory = 2048
+
+  # S3 lifecycle
+  enable_s3_lifecycle       = true
+  s3_object_expiration_days = 3
+
+  # Networking
+  vpc_cidr = "172.20.0.0/16"
+  max_azs  = 2
+
+  # Custom domain
+  custom_domain = "pdf-fix.ucop.edu"
+
+  # GitHub repos (private)
+  backend_github_repo_url = "https://github.com/ucopacme/PDF_Accessibility.git"
+  ui_github_repo_url      = "https://github.com/ucopacme/PDF_accessability_UI.git"
+  github_branch           = "main"
+
+  # Adobe API (placeholders — update in Secrets Manager after deploy)
+  adobe_client_id     = "placeholder"
+  adobe_client_secret = "placeholder"
+
+  # Lambda source paths
+  pdf_merger_jar_path   = "lambda/pdf-merger/PDFMergerLambda-1.0-SNAPSHOT.jar"
+  ui_lambda_source_path = "lambda"
+
+  # SAML SSO
+  saml_provider_name    = "UC-SSO"
+  saml_metadata_file    = "${path.module}/samlproxy-idp.xml"
+  saml_attribute_mapping = {
+    email       = "urn:oid:0.9.2342.19200300.100.1.3"
+    given_name  = "urn:oid:2.5.4.42"
+    family_name = "urn:oid:2.5.4.4"
+  }
+}
+```
+
+### main.tf
+
+```hcl
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+module "pdf_accessibility" {
+  source = "git::git@github.com:ucopacme/terraform-aws-pdf-accessibility.git//pdf_accessibility"
+  count  = local.deploy_pdf2pdf ? 1 : 0
+
+  project_name        = local.project_name
+  aws_region          = local.aws_region
+  account_id          = local.account_id
+  environment         = local.environment
+  vpc_cidr            = local.vpc_cidr
+  max_azs             = local.max_azs
+  adobe_client_id     = local.adobe_client_id
+  adobe_client_secret = local.adobe_client_secret
+  autotag_cpu         = local.autotag_cpu
+  autotag_memory      = local.autotag_memory
+  alt_text_cpu        = local.alt_text_cpu
+  alt_text_memory     = local.alt_text_memory
+  pdf_merger_jar_path = local.pdf_merger_jar_path
+  github_repo_url     = local.backend_github_repo_url
+  github_branch       = local.github_branch
+}
+
+module "pdf2html" {
+  source = "git::git@github.com:ucopacme/terraform-aws-pdf-accessibility.git//pdf2html"
+  count  = local.deploy_pdf2html ? 1 : 0
+
+  project_name    = local.project_name
+  aws_region      = local.aws_region
+  account_id      = local.account_id
+  environment     = local.environment
+  bucket_name     = join("-", ["pdf-accessibility-pdf-to-html", local.account_id, local.aws_region])
+  github_repo_url = local.backend_github_repo_url
+  github_branch   = local.github_branch
+}
+
+module "pdf_ui" {
+  source = "git::git@github.com:ucopacme/terraform-aws-pdf-accessibility.git//pdf_ui"
+  count  = local.deploy_ui ? 1 : 0
+
+  project_name            = local.project_name
+  aws_region              = local.aws_region
+  account_id              = local.account_id
+  environment             = local.environment
+  deploy_pdf2pdf          = local.deploy_pdf2pdf
+  deploy_pdf2html         = local.deploy_pdf2html
+  pdf_to_pdf_bucket_name  = local.deploy_pdf2pdf ? module.pdf_accessibility[0].bucket_name : ""
+  pdf_to_html_bucket_name = local.deploy_pdf2html ? module.pdf2html[0].bucket_name : ""
+  pdf_to_pdf_bucket_arn   = local.deploy_pdf2pdf ? module.pdf_accessibility[0].bucket_arn : ""
+  pdf_to_html_bucket_arn  = local.deploy_pdf2html ? module.pdf2html[0].bucket_arn : ""
+  ui_lambda_source_path   = local.ui_lambda_source_path
+  custom_domain           = local.custom_domain
+  ui_github_repo_url      = local.ui_github_repo_url
+  ui_github_branch        = local.github_branch
+
+  # SAML SSO
+  saml_provider_name     = local.saml_provider_name
+  saml_metadata_file     = local.saml_metadata_file
+  saml_attribute_mapping = local.saml_attribute_mapping
+}
+```
+
+### github.tf — Private Repo Access via CodeStar Connection
+
+```hcl
+resource "aws_codestarconnections_connection" "github" {
+  name          = "pdf-accessibility-github"
+  provider_type = "GitHub"
+}
+
+resource "aws_codebuild_source_credential" "github" {
+  auth_type   = "CODECONNECTIONS"
+  server_type = "GITHUB"
+  token       = aws_codestarconnections_connection.github.arn
+}
+
+# Grant CodeBuild roles permission to use the connection
+resource "aws_iam_role_policy" "codebuild_codeconnections" {
+  for_each = toset([
+    "pdf-accessibility-${local.environment}-codebuild-role",
+    "pdf-accessibility-${local.environment}-frontend-codebuild-role",
+    "pdf-accessibility-${local.environment}-pdf2html-codebuild-role",
+  ])
+
+  name = "codeconnections-access"
+  role = each.value
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "codeconnections:GetConnectionToken",
+        "codeconnections:GetConnection"
+      ]
+      Resource = [aws_codestarconnections_connection.github.arn]
+    }]
+  })
+}
+```
+
+> **Note:** After `terraform apply`, the connection is created in `PENDING` status. Complete the OAuth handshake in the AWS Console (CodeBuild → Settings → Connections) and scope it to only the required repositories.
+
+### S3 Lifecycle (optional)
+
+```hcl
+resource "aws_s3_bucket_lifecycle_configuration" "pdf2pdf" {
+  count  = local.deploy_pdf2pdf && local.enable_s3_lifecycle ? 1 : 0
+  bucket = module.pdf_accessibility[0].bucket_name
+
+  rule {
+    id     = "expire-objects"
+    status = "Enabled"
+    filter {}
+    expiration {
+      days = local.s3_object_expiration_days
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "pdf2html" {
+  count  = local.deploy_pdf2html && local.enable_s3_lifecycle ? 1 : 0
+  bucket = module.pdf2html[0].bucket_name
+
+  rule {
+    id     = "expire-objects"
+    status = "Enabled"
+    filter {}
+    expiration {
+      days = local.s3_object_expiration_days
+    }
+  }
+}
+```
+
+### Deployment Steps
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+After apply:
+1. Complete the CodeStar Connection handshake (see `github.tf` note above)
+2. Update Adobe credentials in Secrets Manager
+3. Verify builds: `aws codebuild start-build --project-name pdf-accessibility-prod-image-builder --region us-west-2`
+
 ## License
 
 See [LICENSE](LICENSE) for details.
