@@ -68,3 +68,22 @@ variable "pdf_merger_jar_path" {
   description = "Local path to the pre-built PDF Merger Lambda JAR file (build with: mvn clean package)"
   type        = string
 }
+
+# ─── Lambda Deployment Mode ─────────────────────────────────────────────────
+
+variable "use_zip_lambdas" {
+  description = "Deploy the 4 processing Lambdas as zip packages instead of container images"
+  type        = bool
+  default     = false
+}
+
+variable "lambda_zip_paths" {
+  description = "Map of Lambda zip file paths (required when use_zip_lambdas = true)"
+  type = object({
+    pdf_splitter             = optional(string, "")
+    title_generator          = optional(string, "")
+    pre_remediation_checker  = optional(string, "")
+    post_remediation_checker = optional(string, "")
+  })
+  default = {}
+}

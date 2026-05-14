@@ -104,13 +104,24 @@ resource "aws_ecr_repository" "post_remediation_checker" {
 resource "aws_lambda_function" "pdf_splitter" {
   function_name = "pdf-accessibility-${var.environment}-pdf-splitter"
   role          = aws_iam_role.lambda_execution.arn
-  package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.pdf_splitter.repository_url}:latest"
   timeout       = 900
   memory_size   = 1024
 
-  image_config {
-    command = ["main.lambda_handler"]
+  # Container mode
+  package_type = var.use_zip_lambdas ? "Zip" : "Image"
+  image_uri    = var.use_zip_lambdas ? null : "${aws_ecr_repository.pdf_splitter.repository_url}:latest"
+
+  # Zip mode
+  filename         = var.use_zip_lambdas ? var.lambda_zip_paths.pdf_splitter : null
+  source_code_hash = var.use_zip_lambdas ? filebase64sha256(var.lambda_zip_paths.pdf_splitter) : null
+  handler          = var.use_zip_lambdas ? "main.lambda_handler" : null
+  runtime          = var.use_zip_lambdas ? "python3.12" : null
+
+  dynamic "image_config" {
+    for_each = var.use_zip_lambdas ? [] : [1]
+    content {
+      command = ["main.lambda_handler"]
+    }
   }
 
   environment {
@@ -178,13 +189,22 @@ resource "aws_lambda_function" "pdf_merger" {
 resource "aws_lambda_function" "title_generator" {
   function_name = "pdf-accessibility-${var.environment}-title-generator"
   role          = aws_iam_role.lambda_execution.arn
-  package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.title_generator.repository_url}:latest"
   timeout       = 900
   memory_size   = 1024
 
-  image_config {
-    command = ["title_generator.lambda_handler"]
+  package_type = var.use_zip_lambdas ? "Zip" : "Image"
+  image_uri    = var.use_zip_lambdas ? null : "${aws_ecr_repository.title_generator.repository_url}:latest"
+
+  filename         = var.use_zip_lambdas ? var.lambda_zip_paths.title_generator : null
+  source_code_hash = var.use_zip_lambdas ? filebase64sha256(var.lambda_zip_paths.title_generator) : null
+  handler          = var.use_zip_lambdas ? "title_generator.lambda_handler" : null
+  runtime          = var.use_zip_lambdas ? "python3.12" : null
+
+  dynamic "image_config" {
+    for_each = var.use_zip_lambdas ? [] : [1]
+    content {
+      command = ["title_generator.lambda_handler"]
+    }
   }
 
   tags = {
@@ -199,13 +219,22 @@ resource "aws_lambda_function" "title_generator" {
 resource "aws_lambda_function" "pre_remediation_checker" {
   function_name = "pdf-accessibility-${var.environment}-pre-remediation-checker"
   role          = aws_iam_role.lambda_execution.arn
-  package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.pre_remediation_checker.repository_url}:latest"
   timeout       = 900
   memory_size   = 512
 
-  image_config {
-    command = ["main.lambda_handler"]
+  package_type = var.use_zip_lambdas ? "Zip" : "Image"
+  image_uri    = var.use_zip_lambdas ? null : "${aws_ecr_repository.pre_remediation_checker.repository_url}:latest"
+
+  filename         = var.use_zip_lambdas ? var.lambda_zip_paths.pre_remediation_checker : null
+  source_code_hash = var.use_zip_lambdas ? filebase64sha256(var.lambda_zip_paths.pre_remediation_checker) : null
+  handler          = var.use_zip_lambdas ? "main.lambda_handler" : null
+  runtime          = var.use_zip_lambdas ? "python3.12" : null
+
+  dynamic "image_config" {
+    for_each = var.use_zip_lambdas ? [] : [1]
+    content {
+      command = ["main.lambda_handler"]
+    }
   }
 
   tags = {
@@ -220,13 +249,22 @@ resource "aws_lambda_function" "pre_remediation_checker" {
 resource "aws_lambda_function" "post_remediation_checker" {
   function_name = "pdf-accessibility-${var.environment}-post-remediation-checker"
   role          = aws_iam_role.lambda_execution.arn
-  package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.post_remediation_checker.repository_url}:latest"
   timeout       = 900
   memory_size   = 512
 
-  image_config {
-    command = ["main.lambda_handler"]
+  package_type = var.use_zip_lambdas ? "Zip" : "Image"
+  image_uri    = var.use_zip_lambdas ? null : "${aws_ecr_repository.post_remediation_checker.repository_url}:latest"
+
+  filename         = var.use_zip_lambdas ? var.lambda_zip_paths.post_remediation_checker : null
+  source_code_hash = var.use_zip_lambdas ? filebase64sha256(var.lambda_zip_paths.post_remediation_checker) : null
+  handler          = var.use_zip_lambdas ? "main.lambda_handler" : null
+  runtime          = var.use_zip_lambdas ? "python3.12" : null
+
+  dynamic "image_config" {
+    for_each = var.use_zip_lambdas ? [] : [1]
+    content {
+      command = ["main.lambda_handler"]
+    }
   }
 
   tags = {
