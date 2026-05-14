@@ -152,7 +152,12 @@ resource "aws_codebuild_project" "image_builder" {
           ]
         }
         build = {
-          commands = [
+          commands = var.use_zip_lambdas ? [
+            "echo Building adobe-autotag image...",
+            "docker build --platform linux/amd64 -t $ADOBE_AUTOTAG_REPO:latest adobe-autotag-container/",
+            "echo Building alt-text-generator image...",
+            "docker build --platform linux/amd64 -t $ALT_TEXT_REPO:latest alt-text-generator-container/",
+          ] : [
             "echo Building adobe-autotag image...",
             "docker build --platform linux/amd64 -t $ADOBE_AUTOTAG_REPO:latest adobe-autotag-container/",
             "echo Building alt-text-generator image...",
@@ -176,7 +181,12 @@ resource "aws_codebuild_project" "image_builder" {
           ]
         }
         post_build = {
-          commands = [
+          commands = var.use_zip_lambdas ? [
+            "echo Pushing ECS images to ECR...",
+            "docker push $ADOBE_AUTOTAG_REPO:latest",
+            "docker push $ALT_TEXT_REPO:latest",
+            "echo All images pushed successfully on $(date)",
+          ] : [
             "echo Pushing all images to ECR...",
             "docker push $ADOBE_AUTOTAG_REPO:latest",
             "docker push $ALT_TEXT_REPO:latest",
