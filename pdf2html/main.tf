@@ -352,7 +352,9 @@ resource "aws_iam_role_policy" "pdf2html_lambda_permissions" {
           "arn:aws:bedrock:${var.aws_region}::foundation-model/us.amazon.nova-lite-v1:0",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-lite-v1:0",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/us.amazon.nova-pro-v1:0",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-pro-v1:0"
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-pro-v1:0",
+          "arn:aws:bedrock:${var.aws_region}:${var.account_id}:inference-profile/us.amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:${var.aws_region}:${var.account_id}:inference-profile/us.amazon.nova-pro-v1:0"
         ]
       },
       {
