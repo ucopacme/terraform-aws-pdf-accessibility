@@ -346,15 +346,16 @@ resource "aws_iam_role_policy" "pdf2html_lambda_permissions" {
         Effect = "Allow"
         Action = [
           "bedrock:InvokeModel",
-          "bedrock:InvokeModelWithResponseStream"
+          "bedrock:InvokeModelWithResponseStream",
+          "bedrock:Converse"
         ]
         Resource = [
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/us.amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/us.amazon.nova-pro-v1:0",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-pro-v1:0",
-          "arn:aws:bedrock:${var.aws_region}:${var.account_id}:inference-profile/us.amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:${var.aws_region}:${var.account_id}:inference-profile/us.amazon.nova-pro-v1:0"
+          "arn:aws:bedrock:*::foundation-model/us.amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:*::foundation-model/us.amazon.nova-pro-v1:0",
+          "arn:aws:bedrock:*::foundation-model/amazon.nova-pro-v1:0",
+          "arn:aws:bedrock:*:${var.account_id}:inference-profile/us.amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:*:${var.account_id}:inference-profile/us.amazon.nova-pro-v1:0"
         ]
       },
       {
