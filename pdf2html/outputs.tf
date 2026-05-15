@@ -11,7 +11,7 @@ output "lambda_function_name" {
 }
 
 output "ecr_repository_url" {
-  value = aws_ecr_repository.pdf2html.repository_url
+  value = length(aws_ecr_repository.pdf2html) > 0 ? aws_ecr_repository.pdf2html[0].repository_url : ""
 }
 
 output "bda_project_arn" {

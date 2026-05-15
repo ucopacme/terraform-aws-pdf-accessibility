@@ -25,3 +25,15 @@ variable "environment" {
   type        = string
   default     = "production"
 }
+
+variable "use_zip_lambda" {
+  description = "Use zip deployment instead of container image"
+  type        = bool
+  default     = false
+}
+
+variable "lambda_zip_path" {
+  description = "Path to the Lambda zip file (required when use_zip_lambda = true)"
+  type        = string
+  default     = ""
+}

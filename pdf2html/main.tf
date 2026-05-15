@@ -90,9 +90,10 @@ resource "aws_s3_object" "remediated_folder" {
   content = ""
 }
 
-# ─── ECR Repository ───────────────────────────────────────────────────────
+# ─── ECR Repository (container mode only) ─────────────────────────────────
 
 resource "aws_ecr_repository" "pdf2html" {
+  count                = var.use_zip_lambda ? 0 : 1
   name                 = "pdf2html-lambda"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
@@ -121,7 +122,8 @@ variable "github_branch" {
 }
 
 resource "aws_iam_role" "codebuild" {
-  name = "pdf-accessibility-${var.environment}-pdf2html-codebuild-role"
+  count = var.use_zip_lambda ? 0 : 1
+  name  = "pdf-accessibility-${var.environment}-pdf2html-codebuild-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -136,8 +138,9 @@ resource "aws_iam_role" "codebuild" {
 }
 
 resource "aws_iam_role_policy" "codebuild" {
-  name = "codebuild-permissions"
-  role = aws_iam_role.codebuild.id
+  count = var.use_zip_lambda ? 0 : 1
+  name  = "codebuild-permissions"
+  role  = aws_iam_role.codebuild[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -170,16 +173,17 @@ resource "aws_iam_role_policy" "codebuild" {
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload"
         ]
-        Resource = [aws_ecr_repository.pdf2html.arn]
+        Resource = [aws_ecr_repository.pdf2html[0].arn]
       }
     ]
   })
 }
 
 resource "aws_codebuild_project" "pdf2html" {
+  count        = var.use_zip_lambda ? 0 : 1
   name         = "pdf-accessibility-${var.environment}-build-pdf2html"
   description  = "Builds and pushes the pdf2html Lambda Docker image to ECR"
-  service_role = aws_iam_role.codebuild.arn
+  service_role = aws_iam_role.codebuild[0].arn
 
   artifacts {
     type = "NO_ARTIFACTS"
@@ -204,7 +208,7 @@ resource "aws_codebuild_project" "pdf2html" {
 
     environment_variable {
       name  = "ECR_REPO_URL"
-      value = aws_ecr_repository.pdf2html.repository_url
+      value = aws_ecr_repository.pdf2html[0].repository_url
     }
   }
 
@@ -244,15 +248,17 @@ resource "aws_codebuild_project" "pdf2html" {
 }
 
 resource "null_resource" "trigger_pdf2html_build" {
+  count = var.use_zip_lambda ? 0 : 1
+
   triggers = {
-    codebuild_project = aws_codebuild_project.pdf2html.id
+    codebuild_project = aws_codebuild_project.pdf2html[0].id
   }
 
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-c"]
     command     = <<-SCRIPT
       set -e
-      PROJECT="${aws_codebuild_project.pdf2html.name}"
+      PROJECT="${aws_codebuild_project.pdf2html[0].name}"
       REGION="${var.aws_region}"
       echo "Starting CodeBuild project: $PROJECT"
       BUILD_ID=$(aws codebuild start-build --project-name "$PROJECT" --region "$REGION" --query 'build.id' --output text)
@@ -391,10 +397,18 @@ resource "aws_iam_role_policy" "pdf2html_lambda_permissions" {
 resource "aws_lambda_function" "pdf2html" {
   function_name = "pdf-accessibility-${var.environment}-pdf2html-pipeline"
   role          = aws_iam_role.pdf2html_lambda.arn
-  package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.pdf2html.repository_url}:latest"
   timeout       = 900
   memory_size   = 1024
+
+  # Container mode
+  package_type = var.use_zip_lambda ? "Zip" : "Image"
+  image_uri    = var.use_zip_lambda ? null : "${aws_ecr_repository.pdf2html[0].repository_url}:latest"
+
+  # Zip mode
+  filename         = var.use_zip_lambda ? var.lambda_zip_path : null
+  source_code_hash = var.use_zip_lambda ? filebase64sha256(var.lambda_zip_path) : null
+  handler          = var.use_zip_lambda ? "lambda_function.lambda_handler" : null
+  runtime          = var.use_zip_lambda ? "python3.12" : null
 
   environment {
     variables = {
