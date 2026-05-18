@@ -66,14 +66,18 @@ resource "aws_iam_role_policy" "codebuild" {
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload"
         ]
-        Resource = [
-          aws_ecr_repository.adobe_autotag.arn,
-          aws_ecr_repository.alt_text_generator.arn,
-          aws_ecr_repository.pdf_splitter.arn,
-          aws_ecr_repository.title_generator.arn,
-          aws_ecr_repository.pre_remediation_checker.arn,
-          aws_ecr_repository.post_remediation_checker.arn,
-        ]
+        Resource = concat(
+          [
+            aws_ecr_repository.adobe_autotag.arn,
+            aws_ecr_repository.alt_text_generator.arn,
+          ],
+          var.use_zip_lambdas ? [] : [
+            aws_ecr_repository.pdf_splitter[0].arn,
+            aws_ecr_repository.title_generator[0].arn,
+            aws_ecr_repository.pre_remediation_checker[0].arn,
+            aws_ecr_repository.post_remediation_checker[0].arn,
+          ]
+        )
       }
     ]
   })
@@ -119,22 +123,22 @@ resource "aws_codebuild_project" "image_builder" {
 
     environment_variable {
       name  = "PDF_SPLITTER_REPO"
-      value = aws_ecr_repository.pdf_splitter.repository_url
+      value = var.use_zip_lambdas ? "unused" : aws_ecr_repository.pdf_splitter[0].repository_url
     }
 
     environment_variable {
       name  = "TITLE_GENERATOR_REPO"
-      value = aws_ecr_repository.title_generator.repository_url
+      value = var.use_zip_lambdas ? "unused" : aws_ecr_repository.title_generator[0].repository_url
     }
 
     environment_variable {
       name  = "PRE_CHECKER_REPO"
-      value = aws_ecr_repository.pre_remediation_checker.repository_url
+      value = var.use_zip_lambdas ? "unused" : aws_ecr_repository.pre_remediation_checker[0].repository_url
     }
 
     environment_variable {
       name  = "POST_CHECKER_REPO"
-      value = aws_ecr_repository.post_remediation_checker.repository_url
+      value = var.use_zip_lambdas ? "unused" : aws_ecr_repository.post_remediation_checker[0].repository_url
     }
   }
 
@@ -154,14 +158,14 @@ resource "aws_codebuild_project" "image_builder" {
         build = {
           commands = var.use_zip_lambdas ? [
             "echo Building adobe-autotag image...",
-            "docker build --platform linux/amd64 -t $ADOBE_AUTOTAG_REPO:latest adobe-autotag-container/",
+            "docker build --no-cache --platform linux/amd64 -t $ADOBE_AUTOTAG_REPO:latest adobe-autotag-container/",
             "echo Building alt-text-generator image...",
-            "docker build --platform linux/amd64 -t $ALT_TEXT_REPO:latest alt-text-generator-container/",
+            "docker build --no-cache --platform linux/amd64 -t $ALT_TEXT_REPO:latest alt-text-generator-container/",
           ] : [
             "echo Building adobe-autotag image...",
-            "docker build --platform linux/amd64 -t $ADOBE_AUTOTAG_REPO:latest adobe-autotag-container/",
+            "docker build --no-cache --platform linux/amd64 -t $ADOBE_AUTOTAG_REPO:latest adobe-autotag-container/",
             "echo Building alt-text-generator image...",
-            "docker build --platform linux/amd64 -t $ALT_TEXT_REPO:latest alt-text-generator-container/",
+            "docker build --no-cache --platform linux/amd64 -t $ALT_TEXT_REPO:latest alt-text-generator-container/",
             "echo Building Lambda images with /asset -> /var/task fix...",
             "echo 'ARG BASE_IMAGE' > /tmp/LambdaFix.Dockerfile",
             "echo 'FROM $${BASE_IMAGE}' >> /tmp/LambdaFix.Dockerfile",

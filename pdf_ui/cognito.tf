@@ -266,7 +266,7 @@ resource "aws_cognito_user_pool_client" "pdf_ui" {
   ])
 
   supported_identity_providers = compact(concat(
-    var.enable_cognito_provider ? ["COGNITO"] : [],
+    ["COGNITO"],
     var.saml_provider_name != "" ? [var.saml_provider_name] : []
   ))
 

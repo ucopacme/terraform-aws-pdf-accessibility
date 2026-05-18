@@ -1,0 +1,33 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Backend Configuration — EXAMPLE
+# ═══════════════════════════════════════════════════════════════════════════
+# Copy this file to backend.tf and fill in your organization's values.
+# Do NOT commit backend.tf with real values to a public repo.
+#
+# Options:
+#   - Scalr remote backend (shown below)
+#   - S3 backend
+#   - Terraform Cloud
+#
+# ─── Scalr Example ──────────────────────────────────────────────────────
+# terraform {
+#   backend "remote" {
+#     hostname     = "your-org.scalr.io"
+#     organization = "env-XXXXXXXXXXXXX"
+#
+#     workspaces {
+#       name = "pdf-accessibility-<ENV>"
+#     }
+#   }
+# }
+#
+# ─── S3 Example ─────────────────────────────────────────────────────────
+# terraform {
+#   backend "s3" {
+#     bucket         = "your-terraform-state-bucket"
+#     key            = "pdf-accessibility/<ENV>/terraform.tfstate"
+#     region         = "us-west-2"
+#     dynamodb_table = "terraform-locks"
+#     encrypt        = true
+#   }
+# }

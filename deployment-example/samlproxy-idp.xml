@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PLACEHOLDER — Replace this file with your organization's SAML IdP metadata XML.
+
+  You can typically download this from your IdP admin console:
+    - Okta: Applications → Your App → Sign On → Identity Provider metadata
+    - Azure AD: Enterprise Applications → Your App → Single sign-on → Federation Metadata XML
+    - SimpleSAMLphp: /simplesaml/saml2/idp/metadata.php (XML output)
+
+  The file must contain an <md:EntityDescriptor> element with your IdP's:
+    - Entity ID
+    - Signing certificate
+    - SSO endpoint URL
+
+  If you don't need SAML SSO, set enable_cognito_provider = false in locals.tf
+  and this file will be ignored.
+-->
+<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                     entityID="https://your-idp.example.com/metadata">
+  <md:IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+    <md:KeyDescriptor use="signing">
+      <ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+        <ds:X509Data>
+          <ds:X509Certificate>YOUR_IDP_SIGNING_CERTIFICATE_HERE</ds:X509Certificate>
+        </ds:X509Data>
+      </ds:KeyInfo>
+    </md:KeyDescriptor>
+    <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+                            Location="https://your-idp.example.com/sso"/>
+  </md:IDPSSODescriptor>
+</md:EntityDescriptor>

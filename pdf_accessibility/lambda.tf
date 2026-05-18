@@ -70,6 +70,7 @@ resource "aws_iam_role_policy" "lambda_permissions" {
 # ─── ECR Repositories for Docker-based Lambdas ───────────────────────────
 
 resource "aws_ecr_repository" "pdf_splitter" {
+  count                = var.use_zip_lambdas ? 0 : 1
   name                 = "pdf-accessibility/pdf-splitter"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
@@ -77,6 +78,7 @@ resource "aws_ecr_repository" "pdf_splitter" {
 }
 
 resource "aws_ecr_repository" "title_generator" {
+  count                = var.use_zip_lambdas ? 0 : 1
   name                 = "pdf-accessibility/title-generator"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
@@ -84,6 +86,7 @@ resource "aws_ecr_repository" "title_generator" {
 }
 
 resource "aws_ecr_repository" "pre_remediation_checker" {
+  count                = var.use_zip_lambdas ? 0 : 1
   name                 = "pdf-accessibility/pre-remediation-checker"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
@@ -91,6 +94,7 @@ resource "aws_ecr_repository" "pre_remediation_checker" {
 }
 
 resource "aws_ecr_repository" "post_remediation_checker" {
+  count                = var.use_zip_lambdas ? 0 : 1
   name                 = "pdf-accessibility/post-remediation-checker"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
@@ -109,7 +113,7 @@ resource "aws_lambda_function" "pdf_splitter" {
 
   # Container mode
   package_type = var.use_zip_lambdas ? "Zip" : "Image"
-  image_uri    = var.use_zip_lambdas ? null : "${aws_ecr_repository.pdf_splitter.repository_url}:latest"
+  image_uri    = var.use_zip_lambdas ? null : "${aws_ecr_repository.pdf_splitter[0].repository_url}:latest"
 
   # Zip mode
   filename         = var.use_zip_lambdas ? var.lambda_zip_paths.pdf_splitter : null
@@ -193,7 +197,7 @@ resource "aws_lambda_function" "title_generator" {
   memory_size   = 1024
 
   package_type = var.use_zip_lambdas ? "Zip" : "Image"
-  image_uri    = var.use_zip_lambdas ? null : "${aws_ecr_repository.title_generator.repository_url}:latest"
+  image_uri    = var.use_zip_lambdas ? null : "${aws_ecr_repository.title_generator[0].repository_url}:latest"
 
   filename         = var.use_zip_lambdas ? var.lambda_zip_paths.title_generator : null
   source_code_hash = var.use_zip_lambdas ? filebase64sha256(var.lambda_zip_paths.title_generator) : null
@@ -223,7 +227,7 @@ resource "aws_lambda_function" "pre_remediation_checker" {
   memory_size   = 512
 
   package_type = var.use_zip_lambdas ? "Zip" : "Image"
-  image_uri    = var.use_zip_lambdas ? null : "${aws_ecr_repository.pre_remediation_checker.repository_url}:latest"
+  image_uri    = var.use_zip_lambdas ? null : "${aws_ecr_repository.pre_remediation_checker[0].repository_url}:latest"
 
   filename         = var.use_zip_lambdas ? var.lambda_zip_paths.pre_remediation_checker : null
   source_code_hash = var.use_zip_lambdas ? filebase64sha256(var.lambda_zip_paths.pre_remediation_checker) : null
@@ -253,7 +257,7 @@ resource "aws_lambda_function" "post_remediation_checker" {
   memory_size   = 512
 
   package_type = var.use_zip_lambdas ? "Zip" : "Image"
-  image_uri    = var.use_zip_lambdas ? null : "${aws_ecr_repository.post_remediation_checker.repository_url}:latest"
+  image_uri    = var.use_zip_lambdas ? null : "${aws_ecr_repository.post_remediation_checker[0].repository_url}:latest"
 
   filename         = var.use_zip_lambdas ? var.lambda_zip_paths.post_remediation_checker : null
   source_code_hash = var.use_zip_lambdas ? filebase64sha256(var.lambda_zip_paths.post_remediation_checker) : null
