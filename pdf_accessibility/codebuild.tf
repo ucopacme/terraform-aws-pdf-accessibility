@@ -210,9 +210,17 @@ resource "aws_codebuild_project" "image_builder" {
   tags = { Name = "pdf-accessibility-${var.environment}-image-builder" }
 }
 
+variable "trigger_build" {
+  description = "Set to true only after CodeStar/GitHub connection setup is complete"
+  type        = bool
+  default     = true
+}
+
 # ─── Trigger CodeBuild and wait for completion ───────────────────────────
 
 resource "null_resource" "trigger_image_build" {
+  count = var.trigger_build ? 1 : 0
+
   triggers = {
     # Re-trigger when ECR repos or CodeBuild project changes
     codebuild_project = aws_codebuild_project.image_builder.id

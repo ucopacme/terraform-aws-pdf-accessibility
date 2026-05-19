@@ -149,9 +149,17 @@ resource "aws_codebuild_project" "frontend" {
   tags = { Name = "pdf-accessibility-${var.environment}-frontend-builder" }
 }
 
+variable "trigger_build" {
+  description = "Set to true only after CodeStar/GitHub connection setup is complete"
+  type        = bool
+  default     = true
+}
+
 # ─── Trigger frontend build and wait ─────────────────────────────────────
 
 resource "null_resource" "trigger_frontend_build" {
+  count = var.trigger_build ? 1 : 0
+
   triggers = {
     codebuild_project = aws_codebuild_project.frontend.id
     # Re-trigger if any backend outputs change
