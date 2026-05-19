@@ -10,3 +10,7 @@
 
 # Old pre-built zip artifacts (no longer used)
 **/builds/
+
+# Large binary artifacts
+deployment-example/lambda/zip/*.zip
+deployment-example/lambda/pdf-merger/*.jar
