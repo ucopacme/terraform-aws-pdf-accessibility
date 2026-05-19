@@ -64,9 +64,15 @@ cp -r deployment-example/ /path/to/your/terraform/<account-name>/pdf-accessibili
 cd /path/to/your/terraform/<account-name>/pdf-accessibility/
 ```
 
-### 2. Lambda Files (pre-included)
+### 2. Lambda Files
 
-All Lambda zip packages, the PDF Merger JAR, and Python source files are **already included** in this directory. No build step is needed for initial deployment.
+Lambda zip packages and the PDF Merger JAR are **not included** in this repo. Pull them from the [PDF_Accessibility](https://github.com/ucopacme/PDF_Accessibility) repo:
+
+```bash
+git clone git@github.com:ucopacme/PDF_Accessibility.git /tmp/PDF_Accessibility
+cp /tmp/PDF_Accessibility/lambda/zip/*.zip lambda/zip/
+cp /tmp/PDF_Accessibility/lambda/pdf-merger/PDFMergerLambda-1.0-SNAPSHOT.jar lambda/pdf-merger/
+```
 
 > **Rebuilding zips is only required when updating Lambda code.** See [docs/lambda-zip-build-guide.md](docs/lambda-zip-build-guide.md) for instructions.
 
@@ -174,7 +180,8 @@ terraform output
 | What changed | Action |
 |--------------|--------|
 | UI Lambda code (`lambda/*.py`) | Edit file, run `terraform apply` |
-| PDF Merger JAR | Rebuild JAR, copy to `lambda/pdf-merger/`, run `terraform apply` |
+| Backend Lambda code | Rebuild zips in `PDF_Accessibility` repo, copy from `lambda/zip/`, run `terraform apply` |
+| PDF Merger JAR | Rebuild JAR in `PDF_Accessibility` repo, copy from `lambda/pdf-merger/`, run `terraform apply` |
 | Backend Docker images | Push to GitHub, trigger CodeBuild |
 | Frontend React code | Push to GitHub, trigger frontend CodeBuild |
 | Terraform module updates | `terraform init -upgrade && terraform apply` |
