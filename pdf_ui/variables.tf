@@ -126,3 +126,23 @@ variable "enable_cognito_provider" {
   type        = bool
   default     = true
 }
+
+# ─── Token Validity ─────────────────────────────────────────────────────────
+
+variable "access_token_validity" {
+  description = "Access token expiration in minutes"
+  type        = number
+  default     = 60
+}
+
+variable "id_token_validity" {
+  description = "ID token expiration in minutes"
+  type        = number
+  default     = 60
+}
+
+variable "refresh_token_validity" {
+  description = "Refresh token expiration in days"
+  type        = number
+  default     = 30
+}

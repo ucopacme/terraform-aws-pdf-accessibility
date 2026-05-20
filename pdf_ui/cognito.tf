@@ -270,6 +270,16 @@ resource "aws_cognito_user_pool_client" "pdf_ui" {
     var.saml_provider_name != "" ? [var.saml_provider_name] : []
   ))
 
+  access_token_validity  = var.access_token_validity
+  id_token_validity      = var.id_token_validity
+  refresh_token_validity = var.refresh_token_validity
+
+  token_validity_units {
+    access_token  = "minutes"
+    id_token      = "minutes"
+    refresh_token = "days"
+  }
+
   prevent_user_existence_errors = "ENABLED"
 
   depends_on = [aws_cognito_identity_provider.saml]
