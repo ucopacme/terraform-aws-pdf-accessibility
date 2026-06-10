@@ -50,6 +50,7 @@ resource "aws_iam_role_policy" "step_functions_permissions" {
           "${aws_lambda_function.pre_remediation_checker.arn}:*",
           aws_lambda_function.post_remediation_checker.arn,
           "${aws_lambda_function.post_remediation_checker.arn}:*",
+          "arn:aws:lambda:${var.aws_region}:${var.account_id}:function:pdf-accessibility-${var.environment}-error-marker",
         ]
       },
       {
@@ -110,7 +111,12 @@ resource "aws_sfn_state_machine" "pdf_remediation" {
       ParallelAccessibilityWorkflow = {
         Type       = "Parallel"
         ResultPath = "$.ParallelResults"
-        End        = true
+        Next       = "WriteSuccessMarker"
+        Catch = [{
+          ErrorEquals = ["States.ALL"]
+          ResultPath  = "$.error"
+          Next        = "WriteErrorMarker"
+        }]
         Branches = [
           {
             StartAt = "ProcessPdfChunksInParallel"
@@ -260,6 +266,41 @@ resource "aws_sfn_state_machine" "pdf_remediation" {
             }
           }
         ]
+      }
+      WriteErrorMarker = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = "arn:aws:lambda:${var.aws_region}:${var.account_id}:function:pdf-accessibility-${var.environment}-error-marker"
+          Payload = {
+            "s3_bucket.$" = "$.s3_bucket"
+            "file_key.$"  = "$.file_key"
+            "error.$"     = "$.error"
+          }
+        }
+        Next = "FailExecution"
+      }
+      WriteSuccessMarker = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        ResultPath = "$.successMarkerResult"
+        Parameters = {
+          FunctionName = "arn:aws:lambda:${var.aws_region}:${var.account_id}:function:pdf-accessibility-${var.environment}-error-marker"
+          Payload = {
+            "s3_bucket.$" = "$.s3_bucket"
+            "file_key.$"  = "$.file_key"
+            "status"      = "SUCCESS"
+          }
+        }
+        Next = "SuccessEnd"
+      }
+      FailExecution = {
+        Type  = "Fail"
+        Error = "RemediationFailed"
+        Cause = "One or more steps in the PDF remediation pipeline failed."
+      }
+      SuccessEnd = {
+        Type = "Succeed"
       }
     }
   })
