@@ -92,39 +92,11 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
           query  = "SOURCE '${local.merger_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
           view   = "table"
         }
-      }
-    ]
-  })
-}
-
-# ═══════════════════════════════════════════════════════════════════════════
-# CloudWatch Failures Dashboard
-# ═══════════════════════════════════════════════════════════════════════════
-
-resource "aws_cloudwatch_dashboard" "pdf_failures" {
-  dashboard_name = "pdf-accessibility-${var.environment}-failures-dashboard"
-
-  dashboard_body = jsonencode({
-    widgets = [
-      {
-        type   = "metric"
-        x      = 0
-        y      = 0
-        width  = 12
-        height = 6
-        properties = {
-          title   = "Step Function Failures"
-          region  = var.aws_region
-          metrics = [
-            ["AWS/States", "ExecutionsFailed", "StateMachineArn", aws_sfn_state_machine.pdf_remediation.arn, { stat = "Sum", period = 300 }]
-          ]
-          view = "timeSeries"
-        }
       },
       {
         type   = "metric"
-        x      = 12
-        y      = 0
+        x      = 0
+        y      = 36
         width  = 12
         height = 6
         properties = {
@@ -139,9 +111,9 @@ resource "aws_cloudwatch_dashboard" "pdf_failures" {
       },
       {
         type   = "metric"
-        x      = 0
-        y      = 6
-        width  = 24
+        x      = 12
+        y      = 36
+        width  = 12
         height = 6
         properties = {
           title   = "Lambda Errors (All Functions)"
@@ -159,46 +131,20 @@ resource "aws_cloudwatch_dashboard" "pdf_failures" {
       {
         type   = "log"
         x      = 0
-        y      = 12
+        y      = 42
         width  = 24
         height = 6
         properties = {
-          title  = "All Errors — Adobe Autotag Container"
+          title  = "All Errors — ECS Containers"
           region = var.aws_region
-          query  = "SOURCE '${local.autotag_log_group}' | fields @timestamp, @message | filter @message like /- ERROR -/ | sort @timestamp desc | limit 50"
+          query  = "SOURCE '${local.autotag_log_group}' | SOURCE '${local.alt_text_log_group}' | fields @timestamp, @message | filter @message like /- ERROR -|error:/ | sort @timestamp desc | limit 50"
           view   = "table"
         }
       },
       {
         type   = "log"
         x      = 0
-        y      = 18
-        width  = 24
-        height = 6
-        properties = {
-          title  = "All Errors — Alt Text Generator"
-          region = var.aws_region
-          query  = "SOURCE '${local.alt_text_log_group}' | fields @timestamp, @message | filter @message like /error:/ | sort @timestamp desc | limit 50"
-          view   = "table"
-        }
-      },
-      {
-        type   = "log"
-        x      = 0
-        y      = 24
-        width  = 24
-        height = 6
-        properties = {
-          title  = "All Errors — Lambdas (Splitter, Merger, Title, Pre/Post Checker)"
-          region = var.aws_region
-          query  = "SOURCE '${local.splitter_log_group}' | SOURCE '${local.merger_log_group}' | SOURCE '/aws/lambda/${aws_lambda_function.title_generator.function_name}' | SOURCE '/aws/lambda/${aws_lambda_function.pre_remediation_checker.function_name}' | SOURCE '/aws/lambda/${aws_lambda_function.post_remediation_checker.function_name}' | fields @timestamp, @message | filter @message like /ERROR|Traceback|Exception/ | sort @timestamp desc | limit 50"
-          view   = "table"
-        }
-      },
-      {
-        type   = "log"
-        x      = 0
-        y      = 30
+        y      = 48
         width  = 24
         height = 6
         properties = {
@@ -211,3 +157,4 @@ resource "aws_cloudwatch_dashboard" "pdf_failures" {
     ]
   })
 }
+
