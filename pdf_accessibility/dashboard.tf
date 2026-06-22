@@ -42,38 +42,29 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
         }
       },
       {
-        type   = "metric"
+        type   = "log"
         x      = 0
         y      = 12
         width  = 12
         height = 6
         properties = {
-          title   = "Step Function Executions (Success vs Failed)"
-          region  = var.aws_region
-          metrics = [
-            ["AWS/States", "ExecutionsSucceeded", "StateMachineArn", aws_sfn_state_machine.pdf_remediation.arn, { stat = "Sum", period = 300, color = "#2ca02c" }],
-            ["AWS/States", "ExecutionsFailed", "StateMachineArn", aws_sfn_state_machine.pdf_remediation.arn, { stat = "Sum", period = 300, color = "#d62728" }]
-          ]
-          view = "timeSeries"
+          title  = "Step Function Executions"
+          region = var.aws_region
+          query  = "SOURCE '${local.step_fn_log_group}' | fields @timestamp, @message | filter @message like /ExecutionSucceeded|ExecutionFailed|ExecutionStarted|ExecutionTimedOut/ | sort @timestamp desc | limit 30"
+          view   = "table"
         }
       },
       {
-        type   = "metric"
+        type   = "log"
         x      = 12
         y      = 12
         width  = 12
         height = 6
         properties = {
-          title   = "Lambda Errors (All Functions)"
-          region  = var.aws_region
-          metrics = [
-            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.pdf_splitter.function_name, { stat = "Sum", period = 300 }],
-            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.pdf_merger.function_name, { stat = "Sum", period = 300 }],
-            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.title_generator.function_name, { stat = "Sum", period = 300 }],
-            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.pre_remediation_checker.function_name, { stat = "Sum", period = 300 }],
-            ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.post_remediation_checker.function_name, { stat = "Sum", period = 300 }]
-          ]
-          view = "timeSeries"
+          title  = "Lambda Errors & Timeouts"
+          region = var.aws_region
+          query  = "SOURCE '${local.splitter_log_group}' | SOURCE '${local.merger_log_group}' | SOURCE '/aws/lambda/${aws_lambda_function.title_generator.function_name}' | SOURCE '/aws/lambda/${aws_lambda_function.pre_remediation_checker.function_name}' | SOURCE '/aws/lambda/${aws_lambda_function.post_remediation_checker.function_name}' | fields @timestamp, @message | filter @message like /ERROR|Task timed out|Exception|Traceback/ | sort @timestamp desc | limit 30"
+          view   = "table"
         }
       },
       {
