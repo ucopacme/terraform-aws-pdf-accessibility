@@ -22,9 +22,9 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
         width  = 24
         height = 6
         properties = {
-          title  = "File Status"
+          title  = "Failed Files Summary"
           region = var.aws_region
-          query  = "SOURCE '${local.splitter_log_group}' | SOURCE '${local.merger_log_group}' | SOURCE '${local.autotag_log_group}' | SOURCE '${local.alt_text_log_group}' | fields @timestamp, @message | parse @message \"File: *, Status: *\" as file, status | stats latest(status) as latestStatus by file | sort file asc"
+          query  = "SOURCE '${local.splitter_log_group}' | SOURCE '${local.autotag_log_group}' | SOURCE '${local.alt_text_log_group}' | SOURCE '${local.merger_log_group}' | fields @timestamp, @message | parse @message \"File: *, Status: *\" as file, status | filter status like /(?i)fail|error/ | stats latest(status) as lastStatus, latest(@timestamp) as lastSeen by file | sort lastSeen desc"
           view   = "table"
         }
       },
@@ -35,68 +35,16 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
         width  = 24
         height = 6
         properties = {
-          title  = "Split PDF Lambda Logs"
+          title  = "All Errors — ECS Containers"
           region = var.aws_region
-          query  = "SOURCE '${local.splitter_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
-          view   = "table"
-        }
-      },
-      {
-        type   = "log"
-        x      = 0
-        y      = 12
-        width  = 24
-        height = 6
-        properties = {
-          title  = "Step Function Execution Logs"
-          region = var.aws_region
-          query  = "SOURCE '${local.step_fn_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
-          view   = "table"
-        }
-      },
-      {
-        type   = "log"
-        x      = 0
-        y      = 18
-        width  = 24
-        height = 6
-        properties = {
-          title  = "Adobe Autotag Processing Logs"
-          region = var.aws_region
-          query  = "SOURCE '${local.autotag_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
-          view   = "table"
-        }
-      },
-      {
-        type   = "log"
-        x      = 0
-        y      = 24
-        width  = 24
-        height = 6
-        properties = {
-          title  = "Alt Text Generation Logs"
-          region = var.aws_region
-          query  = "SOURCE '${local.alt_text_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
-          view   = "table"
-        }
-      },
-      {
-        type   = "log"
-        x      = 0
-        y      = 30
-        width  = 24
-        height = 6
-        properties = {
-          title  = "PDF Merger Lambda Logs"
-          region = var.aws_region
-          query  = "SOURCE '${local.merger_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
+          query  = "SOURCE '${local.autotag_log_group}' | SOURCE '${local.alt_text_log_group}' | fields @timestamp, @message | filter @message like /- ERROR -|error:/ | sort @timestamp desc | limit 50"
           view   = "table"
         }
       },
       {
         type   = "metric"
         x      = 0
-        y      = 36
+        y      = 12
         width  = 12
         height = 6
         properties = {
@@ -112,7 +60,7 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
       {
         type   = "metric"
         x      = 12
-        y      = 36
+        y      = 12
         width  = 12
         height = 6
         properties = {
@@ -131,13 +79,65 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
       {
         type   = "log"
         x      = 0
+        y      = 18
+        width  = 24
+        height = 6
+        properties = {
+          title  = "File Status"
+          region = var.aws_region
+          query  = "SOURCE '${local.splitter_log_group}' | SOURCE '${local.merger_log_group}' | SOURCE '${local.autotag_log_group}' | SOURCE '${local.alt_text_log_group}' | fields @timestamp, @message | parse @message \"File: *, Status: *\" as file, status | stats latest(status) as latestStatus by file | sort file asc"
+          view   = "table"
+        }
+      },
+      {
+        type   = "log"
+        x      = 0
+        y      = 24
+        width  = 24
+        height = 6
+        properties = {
+          title  = "Split PDF Lambda Logs"
+          region = var.aws_region
+          query  = "SOURCE '${local.splitter_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
+          view   = "table"
+        }
+      },
+      {
+        type   = "log"
+        x      = 0
+        y      = 30
+        width  = 24
+        height = 6
+        properties = {
+          title  = "Step Function Execution Logs"
+          region = var.aws_region
+          query  = "SOURCE '${local.step_fn_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
+          view   = "table"
+        }
+      },
+      {
+        type   = "log"
+        x      = 0
+        y      = 36
+        width  = 24
+        height = 6
+        properties = {
+          title  = "Adobe Autotag Processing Logs"
+          region = var.aws_region
+          query  = "SOURCE '${local.autotag_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
+          view   = "table"
+        }
+      },
+      {
+        type   = "log"
+        x      = 0
         y      = 42
         width  = 24
         height = 6
         properties = {
-          title  = "All Errors — ECS Containers"
+          title  = "Alt Text Generation Logs"
           region = var.aws_region
-          query  = "SOURCE '${local.autotag_log_group}' | SOURCE '${local.alt_text_log_group}' | fields @timestamp, @message | filter @message like /- ERROR -|error:/ | sort @timestamp desc | limit 50"
+          query  = "SOURCE '${local.alt_text_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
           view   = "table"
         }
       },
@@ -148,13 +148,12 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
         width  = 24
         height = 6
         properties = {
-          title  = "Failed Files Summary"
+          title  = "PDF Merger Lambda Logs"
           region = var.aws_region
-          query  = "SOURCE '${local.splitter_log_group}' | SOURCE '${local.autotag_log_group}' | SOURCE '${local.alt_text_log_group}' | SOURCE '${local.merger_log_group}' | fields @timestamp, @message | parse @message \"File: *, Status: *\" as file, status | filter status like /(?i)fail|error/ | stats latest(status) as lastStatus, latest(@timestamp) as lastSeen by file | sort lastSeen desc"
+          query  = "SOURCE '${local.merger_log_group}' | fields @timestamp, @message | filter @message like /(?i)filename/ | sort @timestamp desc | limit 50"
           view   = "table"
         }
       }
     ]
   })
 }
-
