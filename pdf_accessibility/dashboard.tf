@@ -165,7 +165,7 @@ resource "aws_cloudwatch_dashboard" "pdf_failures" {
         properties = {
           title  = "All Errors — Adobe Autotag Container"
           region = var.aws_region
-          query  = "SOURCE '${local.autotag_log_group}' | fields @timestamp, @message | filter @message like /(?i)error|failed|exception/ | sort @timestamp desc | limit 50"
+          query  = "SOURCE '${local.autotag_log_group}' | fields @timestamp, @message | filter @message like /- ERROR -/ | sort @timestamp desc | limit 50"
           view   = "table"
         }
       },
@@ -178,7 +178,7 @@ resource "aws_cloudwatch_dashboard" "pdf_failures" {
         properties = {
           title  = "All Errors — Alt Text Generator"
           region = var.aws_region
-          query  = "SOURCE '${local.alt_text_log_group}' | fields @timestamp, @message | filter @message like /(?i)error|failed|exception/ | sort @timestamp desc | limit 50"
+          query  = "SOURCE '${local.alt_text_log_group}' | fields @timestamp, @message | filter @message like /error:/ | sort @timestamp desc | limit 50"
           view   = "table"
         }
       },
@@ -191,7 +191,7 @@ resource "aws_cloudwatch_dashboard" "pdf_failures" {
         properties = {
           title  = "All Errors — Lambdas (Splitter, Merger, Title, Pre/Post Checker)"
           region = var.aws_region
-          query  = "SOURCE '${local.splitter_log_group}' | SOURCE '${local.merger_log_group}' | SOURCE '/aws/lambda/${aws_lambda_function.title_generator.function_name}' | SOURCE '/aws/lambda/${aws_lambda_function.pre_remediation_checker.function_name}' | SOURCE '/aws/lambda/${aws_lambda_function.post_remediation_checker.function_name}' | fields @timestamp, @message | filter @message like /(?i)error|failed|exception|traceback/ | sort @timestamp desc | limit 50"
+          query  = "SOURCE '${local.splitter_log_group}' | SOURCE '${local.merger_log_group}' | SOURCE '/aws/lambda/${aws_lambda_function.title_generator.function_name}' | SOURCE '/aws/lambda/${aws_lambda_function.pre_remediation_checker.function_name}' | SOURCE '/aws/lambda/${aws_lambda_function.post_remediation_checker.function_name}' | fields @timestamp, @message | filter @message like /ERROR|Traceback|Exception/ | sort @timestamp desc | limit 50"
           view   = "table"
         }
       },
