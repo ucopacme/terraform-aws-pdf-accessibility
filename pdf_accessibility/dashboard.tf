@@ -45,25 +45,12 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
         type   = "log"
         x      = 0
         y      = 12
-        width  = 12
+        width  = 24
         height = 6
         properties = {
-          title  = "Step Function Executions"
+          title  = "Step Function Executions (Failures Only)"
           region = var.aws_region
-          query  = "SOURCE '${local.step_fn_log_group}' | fields @timestamp, @message | filter @message like /ExecutionSucceeded|ExecutionFailed|ExecutionStarted|ExecutionTimedOut/ | sort @timestamp desc | limit 30"
-          view   = "table"
-        }
-      },
-      {
-        type   = "log"
-        x      = 12
-        y      = 12
-        width  = 12
-        height = 6
-        properties = {
-          title  = "Lambda Errors & Timeouts"
-          region = var.aws_region
-          query  = "SOURCE '${local.splitter_log_group}' | SOURCE '${local.merger_log_group}' | SOURCE '/aws/lambda/${aws_lambda_function.title_generator.function_name}' | SOURCE '/aws/lambda/${aws_lambda_function.pre_remediation_checker.function_name}' | SOURCE '/aws/lambda/${aws_lambda_function.post_remediation_checker.function_name}' | fields @timestamp, @message | filter @message like /ERROR|Task timed out|Exception|Traceback/ | sort @timestamp desc | limit 30"
+          query  = "SOURCE '${local.step_fn_log_group}' | fields @timestamp, @message | filter @message like /ExecutionFailed|ExecutionTimedOut/ | sort @timestamp desc | limit 30"
           view   = "table"
         }
       },
@@ -71,6 +58,19 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
         type   = "log"
         x      = 0
         y      = 18
+        width  = 24
+        height = 6
+        properties = {
+          title  = "Lambda Errors & Timeouts"
+          region = var.aws_region
+          query  = "SOURCE '${local.splitter_log_group}' | SOURCE '${local.merger_log_group}' | SOURCE '/aws/lambda/${aws_lambda_function.title_generator.function_name}' | SOURCE '/aws/lambda/${aws_lambda_function.pre_remediation_checker.function_name}' | SOURCE '/aws/lambda/${aws_lambda_function.post_remediation_checker.function_name}' | fields @timestamp, @message | filter @message like /\\[ERROR\\]|Task timed out|Traceback/ | sort @timestamp desc | limit 30"
+          view   = "table"
+        }
+      },
+      {
+        type   = "log"
+        x      = 0
+        y      = 24
         width  = 24
         height = 6
         properties = {
@@ -83,7 +83,7 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
       {
         type   = "log"
         x      = 0
-        y      = 24
+        y      = 30
         width  = 24
         height = 6
         properties = {
@@ -96,7 +96,7 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
       {
         type   = "log"
         x      = 0
-        y      = 30
+        y      = 36
         width  = 24
         height = 6
         properties = {
@@ -109,7 +109,7 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
       {
         type   = "log"
         x      = 0
-        y      = 36
+        y      = 42
         width  = 24
         height = 6
         properties = {
@@ -122,7 +122,7 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
       {
         type   = "log"
         x      = 0
-        y      = 42
+        y      = 48
         width  = 24
         height = 6
         properties = {
@@ -135,7 +135,7 @@ resource "aws_cloudwatch_dashboard" "pdf_processing" {
       {
         type   = "log"
         x      = 0
-        y      = 48
+        y      = 54
         width  = 24
         height = 6
         properties = {
