@@ -4,7 +4,7 @@
 
 resource "aws_cloudwatch_log_group" "step_functions" {
   name              = "/aws/states/pdf-accessibility-remediation-workflow"
-  retention_in_days = 15
+  retention_in_days = 14
 
   tags = {
     Name = "pdf-accessibility-${var.environment}-remediation-workflow-logs"
