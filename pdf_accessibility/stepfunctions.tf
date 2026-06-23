@@ -4,7 +4,7 @@
 
 resource "aws_cloudwatch_log_group" "step_functions" {
   name              = "/aws/states/pdf-accessibility-remediation-workflow"
-  retention_in_days = 30
+  retention_in_days = 15
 
   tags = {
     Name = "pdf-accessibility-${var.environment}-remediation-workflow-logs"
@@ -100,8 +100,8 @@ resource "aws_sfn_state_machine" "pdf_remediation" {
 
   logging_configuration {
     log_destination        = "${aws_cloudwatch_log_group.step_functions.arn}:*"
-    include_execution_data = true
-    level                  = "ALL"
+    include_execution_data = false
+    level                  = "ERROR"
   }
 
   definition = jsonencode({
