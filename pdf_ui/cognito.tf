@@ -285,27 +285,15 @@ resource "aws_cognito_user_pool_client" "pdf_ui" {
   depends_on = [aws_cognito_identity_provider.saml]
 }
 
-# ─── User Pool Groups ─────────────────────────────────────────────────────
+# ─── User Pool Groups (dynamic — driven by var.user_groups) ───────────────
 
-resource "aws_cognito_user_group" "default_users" {
-  name         = local.default_group
-  user_pool_id = aws_cognito_user_pool.pdf_ui.id
-  description  = "Group for default or normal users"
-  precedence   = 1
-}
+resource "aws_cognito_user_group" "groups" {
+  for_each = var.user_groups
 
-resource "aws_cognito_user_group" "amazon_users" {
-  name         = local.amazon_group
+  name         = each.key
   user_pool_id = aws_cognito_user_pool.pdf_ui.id
-  description  = "Group for Amazon Employees"
-  precedence   = 2
-}
-
-resource "aws_cognito_user_group" "admin_users" {
-  name         = local.admin_group
-  user_pool_id = aws_cognito_user_pool.pdf_ui.id
-  description  = "Group for admin users with elevated permissions"
-  precedence   = 0
+  description  = each.value.description
+  precedence   = each.value.precedence
 }
 
 # ─── Identity Pool ────────────────────────────────────────────────────────
