@@ -52,21 +52,20 @@ variable "environment" {
   default     = "production"
 }
 
-# ─── User Groups / Upload Tiers ─────────────────────────────────────────────
+# ─── Additional User Groups / Upload Tiers ──────────────────────────────────
 #
-# Defines the Cognito user groups and the per-tier upload limits they grant.
-# To add a NEW tier in the future, add an entry to this map in the deployment
-# configuration — no module code changes or new releases required.
+# EXTRA Cognito user groups beyond the three built-in ones (DefaultUsers,
+# AmazonUsers, AdminUsers). Add an entry here to create a new upload tier —
+# no module code changes or new releases required, and the built-in groups
+# are never touched.
 #
-# - key        : the Cognito group name (e.g. "Pages100Users")
+# - key         : the Cognito group name (e.g. "Pages100Users")
 # - description : shown in the Cognito console
 # - precedence  : Cognito group precedence (lower number = higher priority).
-#                 Also used to resolve limits when a user is in multiple groups
-#                 (the group with the lowest precedence number wins).
 # - max_files_allowed / max_pages_allowed / max_size_allowed_mb : the limits
-#                 stamped onto a user's Cognito attributes when added to the group.
-variable "user_groups" {
-  description = "Cognito user groups and their upload limits. Add a map entry to create a new tier."
+#                 stamped onto a user's attributes when added to the group.
+variable "additional_user_groups" {
+  description = "Extra Cognito user groups and their upload limits (beyond the three built-in groups). Add a map entry to create a new tier."
   type = map(object({
     description         = string
     precedence          = number
@@ -75,27 +74,6 @@ variable "user_groups" {
     max_size_allowed_mb = number
   }))
   default = {
-    DefaultUsers = {
-      description         = "Group for default or normal users"
-      precedence          = 1
-      max_files_allowed   = 15
-      max_pages_allowed   = 25
-      max_size_allowed_mb = 25
-    }
-    AmazonUsers = {
-      description         = "Group for Amazon Employees"
-      precedence          = 2
-      max_files_allowed   = 15
-      max_pages_allowed   = 25
-      max_size_allowed_mb = 25
-    }
-    AdminUsers = {
-      description         = "Group for admin users with elevated permissions"
-      precedence          = 0
-      max_files_allowed   = 100
-      max_pages_allowed   = 2500
-      max_size_allowed_mb = 1000
-    }
     Pages100Users = {
       description         = "Elevated tier allowing up to 100 pages per document"
       precedence          = 3

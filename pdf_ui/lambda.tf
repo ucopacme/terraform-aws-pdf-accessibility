@@ -234,10 +234,11 @@ resource "aws_lambda_function" "update_attributes_groups" {
     variables = {
       USER_POOL_ID = aws_cognito_user_pool.pdf_ui.id
 
-      # Group limits + precedence are injected from var.user_groups so new
-      # tiers can be added purely via configuration (no Lambda code change).
+      # Group limits + precedence injected from the built-in groups merged
+      # with var.additional_user_groups, so new tiers can be added purely via
+      # configuration (no Lambda code change).
       GROUP_LIMITS_JSON = jsonencode({
-        for name, cfg in var.user_groups : name => {
+        for name, cfg in local.all_user_groups : name => {
           "custom:max_files_allowed"   = tostring(cfg.max_files_allowed)
           "custom:max_pages_allowed"   = tostring(cfg.max_pages_allowed)
           "custom:max_size_allowed_MB" = tostring(cfg.max_size_allowed_mb)
@@ -248,7 +249,7 @@ resource "aws_lambda_function" "update_attributes_groups" {
       # priority, matching Cognito). The Lambda sorts by this to resolve
       # limits when a user belongs to multiple groups.
       GROUP_PRECEDENCE_MAP_JSON = jsonencode({
-        for name, cfg in var.user_groups : name => cfg.precedence
+        for name, cfg in local.all_user_groups : name => cfg.precedence
       })
     }
   }

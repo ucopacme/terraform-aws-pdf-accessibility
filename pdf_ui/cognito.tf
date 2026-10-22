@@ -8,6 +8,16 @@ locals {
   amazon_group  = "AmazonUsers"
   admin_group   = "AdminUsers"
   app_url       = "https://main.${aws_amplify_app.pdf_ui.id}.amplifyapp.com"
+
+  # Built-in group limits (match the three hardcoded groups above), merged
+  # with any additional tiers so the UpdateAttributesGroups Lambda knows the
+  # limits for every group.
+  builtin_user_groups = {
+    DefaultUsers = { description = "Group for default or normal users", precedence = 1, max_files_allowed = 15, max_pages_allowed = 25, max_size_allowed_mb = 25 }
+    AmazonUsers  = { description = "Group for Amazon Employees", precedence = 2, max_files_allowed = 15, max_pages_allowed = 25, max_size_allowed_mb = 25 }
+    AdminUsers   = { description = "Group for admin users with elevated permissions", precedence = 0, max_files_allowed = 100, max_pages_allowed = 2500, max_size_allowed_mb = 1000 }
+  }
+  all_user_groups = merge(local.builtin_user_groups, var.additional_user_groups)
 }
 
 # ─── User Pool ─────────────────────────────────────────────────────────────
@@ -222,6 +232,18 @@ resource "aws_cognito_identity_provider" "saml" {
   idp_identifiers = var.saml_identifiers
 
   attribute_mapping = var.saml_attribute_mapping
+
+  lifecycle {
+    # AWS auto-populates these provider_details keys by fetching the SAML
+    # metadata (they are not set in our config). Ignore them so Terraform
+    # does not try to strip them on every apply — which would break SSO
+    # sign-in/sign-out.
+    ignore_changes = [
+      provider_details["SSORedirectBindingURI"],
+      provider_details["SLORedirectBindingURI"],
+      provider_details["ActiveEncryptionCertificate"],
+    ]
+  }
 }
 
 # ─── User Pool Client ─────────────────────────────────────────────────────
@@ -285,10 +307,37 @@ resource "aws_cognito_user_pool_client" "pdf_ui" {
   depends_on = [aws_cognito_identity_provider.saml]
 }
 
-# ─── User Pool Groups (dynamic — driven by var.user_groups) ───────────────
+# ─── User Pool Groups ─────────────────────────────────────────────────────
+# The three original groups are kept as-is so existing deployments and group
+# memberships are never disturbed.
 
-resource "aws_cognito_user_group" "groups" {
-  for_each = var.user_groups
+resource "aws_cognito_user_group" "default_users" {
+  name         = local.default_group
+  user_pool_id = aws_cognito_user_pool.pdf_ui.id
+  description  = "Group for default or normal users"
+  precedence   = 1
+}
+
+resource "aws_cognito_user_group" "amazon_users" {
+  name         = local.amazon_group
+  user_pool_id = aws_cognito_user_pool.pdf_ui.id
+  description  = "Group for Amazon Employees"
+  precedence   = 2
+}
+
+resource "aws_cognito_user_group" "admin_users" {
+  name         = local.admin_group
+  user_pool_id = aws_cognito_user_pool.pdf_ui.id
+  description  = "Group for admin users with elevated permissions"
+  precedence   = 0
+}
+
+# ─── Additional User Groups / Upload Tiers (dynamic) ──────────────────────
+# New tiers are added purely via var.additional_user_groups — no module code
+# change and no disruption to the three groups above. Leave the variable empty
+# to create no extra groups.
+resource "aws_cognito_user_group" "additional" {
+  for_each = var.additional_user_groups
 
   name         = each.key
   user_pool_id = aws_cognito_user_pool.pdf_ui.id
